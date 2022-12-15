@@ -4,13 +4,18 @@ from sensor.logger import logger
 import os,sys
 from scipy.stats import ks2_samp
 import pandas as pd
+import yaml 
+from sensor import utils
+import numpy as np 
 
 class DataValidation:
 
-    def __init__(self, data_validation_config:config_entity.DataValidationConfig):
+    def __init__(self, data_validation_config:config_entity.DataValidationConfig,
+    data_ingestion_artifact:artifact_entity.DataIngestionArtifact):
         try:
             logging.info(f"{'>>'*20} Data Validation {'<<'*20}")
             self.data_validation_config=data_validation_config
+            self.data_ingestion_artifact=data_ingestion_artifact
             self.validation_error=dict()
 
         except:
@@ -54,8 +59,8 @@ class DataValidation:
                 self.validation_error["Missing column"]=missing_columns
                 return False
             return True     
-        except:
-            raise e        
+        except Exception as e:
+            raise SensorException(e, sys)       
 
 
     
@@ -72,18 +77,42 @@ class DataValidation:
                 #null hypothesis accepted
                 if same_distribution.pvalue>0.05:
                     drift_report[base_column]={
-                        "pvalues":same_distribution.pvalue
-                        "same_distribution": True
+                        "pvalues":same_distribution.pvalue,
+                        "same distribution": True
                     }
                 # rejecting null hypothesis    
                 else:
                     drift_report[base_column]={
-                        "pvalues":same_distribution.pvalue
+                        "pvalues":same_distribution.pvalue,
                         "same_distribution": False
-                    }    
-
-
+                    }
+            self.validation_error[report_key_name]=drift_report
+        except Exception as e:
+            raise SensorException(e, sys)        
 
     def initiate_data_validation(self)->artifact_entity.DataValidationArtifact:
         try:
-            
+            base_df=pd.read_csv(data_validation_config.base_file_path)
+            base_df=base_df.replace({"na":np.NAN},inplace=True)
+            #base_df has na as null
+            base_df=self.drop_missing_values_column(df=base_df)
+
+            train_df=pd.read_csv(data_ingestion_artifact.train_file_path)
+            test_df=pd.read_csv(data_ingestion_artifact.test_file_path)
+
+            train_df=self.drop_missing_values_column(df=train_df)
+            test_df=self.drop_missing_values_column(df=test_df)
+
+            train_df_columns_status= self.is_required_columns_exist(base_df=base_df, current_df=train_df)
+            test_df_columns_status= self.is_required_columns_exist(base_df=base_df, current_df=test_df)
+
+            if train_df_columns_status:
+                self.data_drift(base_df=base_df, current_df=train_df)
+            if test_df_columns_status:
+                self.data_drift(base_df=base_df, current_df=test_df)    
+
+
+        except Exception as e:
+            raise SensorException(e, sys)
+
+       
