@@ -61,18 +61,29 @@ class DataValidation:
     
     def data_drift(self,base_df:pd.DataFrame,current_df:pd.DataFrame):
         try:
+            drift_report=dict()
+
             base_columns=base_df.columns
             current_columns=current_df.columns
             for base_column in base_columns:
                 base_data,current_data=base_df[base_column],current_df[base_column]
+                #null hypothesis is that both column are drawn from the same distribution
                 same_distribution=ks2_samp(base_data,current_data)
+                #null hypothesis accepted
                 if same_distribution.pvalue>0.05:
-                    pass
-                    #same distribution
+                    drift_report[base_column]={
+                        "pvalues":same_distribution.pvalue
+                        "same_distribution": True
+                    }
+                # rejecting null hypothesis    
                 else:
-                    pass
-                    #other distribution    
+                    drift_report[base_column]={
+                        "pvalues":same_distribution.pvalue
+                        "same_distribution": False
+                    }    
 
 
 
     def initiate_data_validation(self)->artifact_entity.DataValidationArtifact:
+        try:
+            
