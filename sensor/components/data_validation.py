@@ -1,8 +1,9 @@
 from sensor.entity import config_entity,artifact_entity
 from sensor.exception import SensorException
-from sensor.logger import logger
+from sensor.logger import logging
 import os,sys
-from scipy.stats import ks2_samp
+from scipy.stats import ks_2samp
+from typing import Optional
 import pandas as pd
 import yaml 
 from sensor import utils
@@ -22,7 +23,8 @@ class DataValidation:
             raise SensorException(e, sys)  
 
 
-    def drop_missing_values_column(self,df:pd.DataFrame,report_key_name:str)->Option[pd.DataFrame]:
+    def drop_missing_values_column(self,df:pd.DataFrame,report_key_name:str)->Optional[pd.DataFrame]:
+        
         """ 
         This function basically removes those columns which have more than 30% missing values
         """
@@ -116,6 +118,12 @@ class DataValidation:
             logging.info(f"drop null values column from test df")
             test_df=self.drop_missing_values_column(df=test_df,report_key_name="missing_values_within_test_dataset")
 
+
+            exclude_columns = [TARGET_COLUMN]
+            base_df = utils.convert_columns_float(df=base_df, exclude_columns=exclude_columns)
+            train_df = utils.convert_columns_float(df=train_df, exclude_columns=exclude_columns)
+            test_df = utils.convert_columns_float(df=test_df, exclude_columns=exclude_columns)
+            
 
             logging.info(f"Is all required column present in train df")
             train_df_columns_status= self.is_required_columns_exist(base_df=base_df, current_df=train_df,report_key_name="missing_column_within_train_dataset")
