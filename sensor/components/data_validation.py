@@ -23,7 +23,7 @@ class DataValidation:
             raise SensorException(e, sys)  
 
 
-    def drop_missing_values_column(self,df:pd.DataFrame,report_key_name:str)->Optional[pd.DataFrame]:
+    def drop_missing_values_columns(self,df:pd.DataFrame,report_key_name:str)->Optional[pd.DataFrame]:
         
         """ 
         This function basically removes those columns which have more than 30% missing values
@@ -35,18 +35,18 @@ class DataValidation:
             logging.info(f"selecting column name which contain null above to {threshold}")
             drop_column_names = null_report[null_report>threshold].index
 
-            logging.info(f"columns to drop : {drop_column_names}")
-            self.validation_error[report_key_name]=drop_column_names
+            logging.info(f"columns to drop : {list(drop_column_names)}")
+            self.validation_error[report_key_name]=list(drop_column_names)
 
             df.drop(list(drop_column_names),axis=1,inplace=True)
 
             #return None if no column left
-            if len(df.column)==0:
+            if len(df.columns)==0:
                 return None
             return df
                 
 
-        except:
+        except Exception as e:
             raise SensorException(e, sys)
 
 
@@ -80,17 +80,17 @@ class DataValidation:
             for base_column in base_columns:
                 base_data,current_data=base_df[base_column],current_df[base_column]
                 #null hypothesis is that both column are drawn from the same distribution
-                same_distribution=ks2_samp(base_data,current_data)
+                same_distribution=ks_2samp(base_data,current_data)
                 #null hypothesis accepted
                 if same_distribution.pvalue>0.05:
                     drift_report[base_column]={
-                        "pvalues":same_distribution.pvalue,
+                        "pvalues":float(same_distribution.pvalue),
                         "same distribution": True
                     }
                 # rejecting null hypothesis    
                 else:
                     drift_report[base_column]={
-                        "pvalues":same_distribution.pvalue,
+                        "pvalues":float(same_distribution.pvalue),
                         "same_distribution": False
                     }
             self.validation_error[report_key_name]=drift_report
@@ -100,26 +100,26 @@ class DataValidation:
     def initiate_data_validation(self)->artifact_entity.DataValidationArtifact:
         try:
             logging.info(f"reading base dataframe")
-            base_df=pd.read_csv(data_validation_config.base_file_path)
-            base_df=base_df.replace({"na":np.NAN},inplace=True)
+            base_df=pd.read_csv(self.data_validation_config.base_file_path)
+            base_df.replace({"na":np.NAN},inplace=True)
             logging.info(f"removing na value in base dataframe")
             #base_df has na as null
             logging.info(f"drop null values column from base df")
-            base_df=self.drop_missing_values_column(df=base_df,report_key_name="missing_values_within_base_dataset")
+            base_df=self.drop_missing_values_columns(df=base_df,report_key_name="missing_values_within_base_dataset")
 
             logging.info(f"reading train dataframe")
-            train_df=pd.read_csv(data_ingestion_artifact.train_file_path)
+            train_df=pd.read_csv(self.data_ingestion_artifact.train_file_path)
             logging.info(f"reading test dataframe")
-            test_df=pd.read_csv(data_ingestion_artifact.test_file_path)
+            test_df=pd.read_csv(self.data_ingestion_artifact.test_file_path)
 
 
             logging.info(f"drop null values column from train df")
-            train_df=self.drop_missing_values_column(df=train_df,report_key_name="missing_values_within_train_dataset")
+            train_df=self.drop_missing_values_columns(df=train_df,report_key_name="missing_values_within_train_dataset")
             logging.info(f"drop null values column from test df")
-            test_df=self.drop_missing_values_column(df=test_df,report_key_name="missing_values_within_test_dataset")
+            test_df=self.drop_missing_values_columns(df=test_df,report_key_name="missing_values_within_test_dataset")
 
 
-            exclude_columns = [TARGET_COLUMN]
+            exclude_columns = ["class"]
             base_df = utils.convert_columns_float(df=base_df, exclude_columns=exclude_columns)
             train_df = utils.convert_columns_float(df=train_df, exclude_columns=exclude_columns)
             test_df = utils.convert_columns_float(df=test_df, exclude_columns=exclude_columns)
@@ -139,7 +139,8 @@ class DataValidation:
 
             #write the report
             logging.info(f"writing report in yaml file")
-            utils.write_yaml_file(file_path=self.data_validation_config.report_file_path, data=self.validation_error) 
+            utils.write_yaml_file(file_path=self.data_validation_config.report_file_path,
+            data=self.validation_error) 
 
             data_validation_artifact = artifact_entity.DataValidationArtifact(report_file_path=
             self.data_validation_config.report_file_path)  
