@@ -46,4 +46,5 @@ def convert_columns_float(df:pd.DataFrame,exclude_columns:list)->pd.DataFrame:
                 df[column]=df[column].astype('float')
         return df
     except Exception as e:
-        raise e             
+        raise e         
+           
